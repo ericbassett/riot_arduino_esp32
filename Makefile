@@ -1,5 +1,5 @@
 # a minimal application Makefile
-APPLICATION = myapp
+APPLICATION = app_ctrl
 BOARD ?= arduino-nano-33-iot
 RIOTBASE ?= $(CURDIR)/../RIOT
 
@@ -11,10 +11,17 @@ USEMODULE += xtimer
 USEMODULE += shell
 USEMODULE += shell_commands
 USEMODULE += periph_spi
-USEMODULE += nina_w102
+USEMODULE += periph_uart
+USEMODULE += isrpipe_read_timeout
+# USEMODULE += stdio_cdc_acm
+DISABLE_MODULE += auto_init_usbus
+
+
+#USB
+USB_VID=${USB_VID_TESTING}
+USB_PID=${USB_PID_TESTING}
 
 #include networking
-
 
 # additional modules for debugging:
 USEMODULE += ps

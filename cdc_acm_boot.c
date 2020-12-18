@@ -33,14 +33,17 @@ static uint8_t _cdc_rx_bootload_buf_mem[CONFIG_USBUS_CDC_ACM_STDIO_BUF_SIZE];
 static isrpipe_t _cdc_bootload_isrpipe = ISRPIPE_INIT(_cdc_rx_bootload_buf_mem);
 isrpipe_t *_cdc_bootload_isrpipe_ptr = &_cdc_bootload_isrpipe;
 
-void _cdc_acm_bootload_rx_pipe(usbus_cdcacm_device_t *cdcacm,
+size_t _cdc_acm_bootload_rx_pipe(usbus_cdcacm_device_t *cdcacm,
                              uint8_t *data, size_t len)
 {
     (void)cdcacm;
     gpio_set(LED0_PIN);
-    for (size_t i = 0; i < len; i++) {
-        isrpipe_write_one(&_cdc_bootload_isrpipe, data[i]);
+    size_t i;
+    for (i = 0; i < len; i++) {
+        if(isrpipe_write_one(&_cdc_bootload_isrpipe, data[i]) < 0)
+          break;
     }
+    return i;
 }
 
 void usb_cdc_acm_bootload_init(usbus_t *usbus)

@@ -14,41 +14,53 @@
 #define NINA_UART         UART_DEV(1)
 #define NINA_UART_BAUD    115200
 #define NINA_ACK_PIN      GPIO_PIN(PA, 28)
+#define NINA_BUFF_SZ      (128 * 16)
+#define RW_NUM            (128 * 16)
+
+#define UART_THREAD_CDC_FULL_FLAG   (_U_(0x1) << 3)
 
 extern usbus_t *usbus_ptr;
 extern isrpipe_t *_boot_isrpipe_ptr;
+extern isrpipe_t *_cdc_stdio_isrpipe_ptr;
 extern void _cdc_acm_bootload_rx_pipe(usbus_cdcacm_device_t *cdcacm,
                              uint8_t *data, size_t len);
 static char _stack[THREAD_STACKSIZE_LARGE*4];                             
 
-static uint8_t _uart_stdio_buf_mem[CONFIG_USBUS_CDC_ACM_STDIO_BUF_SIZE * 32];
+static uint8_t _uart_stdio_buf_mem[NINA_BUFF_SZ];
 static isrpipe_t _uart_stdio_isrpipe = ISRPIPE_INIT(_uart_stdio_buf_mem);
 
 static void uart_print(void *arg, uint8_t data) {
   (void) arg;
-  static int8_t cnt;
+  static int cnt;
   // stdio_write(&data, 1);
   cnt = isrpipe_write_one(&_uart_stdio_isrpipe, data);
   (void) cnt;
-  // if (cnt < 0) {
-  //   gpio_set(LED0_PIN);
-  // }
-  
+  if (cnt < 0) {
+    gpio_set(LED0_PIN);
+  }
+}
+
+static int chg_num(int n) {
+  if (n > RW_NUM) {
+    return RW_NUM;
+  } else {
+    return n;
+  }
 }
 
 static void *_uart_thread(void *args) {
   // init  
+  (void) _boot_isrpipe_ptr;
   usbus_t *usbus = (usbus_t *) args;
   usbus_cdcacm_device_t *cdcacm = (usbus_cdcacm_device_t *) usbus->handlers->next;
-  static uint8_t usbr_uartw[CONFIG_USBUS_CDC_ACM_STDIO_BUF_SIZE * 32];
-  static uint8_t uartr_usbw[128];
+  static uint8_t usbr_uartw[NINA_BUFF_SZ];
+  static uint8_t uartr_usbw[NINA_BUFF_SZ];
   // char *help_msg = "help\r\n";
-  int num, len;
-  num = tsrb_avail(&_boot_isrpipe_ptr->tsrb);
-  // printf("Help message: %s", help_msg);
-  // read and clear usb
+  size_t num, len;
+  num = tsrb_avail(&_cdc_stdio_isrpipe_ptr->tsrb);
+  len = 0;
   if (num > 0) {
-    isrpipe_read(_boot_isrpipe_ptr, usbr_uartw, num);
+    len = stdio_read(usbr_uartw, num);      
   }
 
 //   usbdev_ep_t *ep_bulk_out = cdcacm->iface_data.ep->next->ep;
@@ -79,6 +91,9 @@ static void *_uart_thread(void *args) {
   //   hd_ct++;
   // }
   // printf("CDC ACM: DTE UART enabled on handler %u\n", (int) cdcacm);
+  printf("CDC max pkt size: %d\n", cdcacm->iface_data.ep->maxpacketsize);
+  printf("EP is out %d and bulk %d\n", cdcacm->iface_data.ep->ep->dir == USB_EP_DIR_OUT,
+          cdcacm->iface_data.ep->ep->type == USB_EP_TYPE_BULK);
 
   int i = 1;
   bool c0_came = false;
@@ -91,11 +106,15 @@ static void *_uart_thread(void *args) {
   (void) esp32_done;
   gpio_clear(LED0_PIN);
 
+  printf("Size of int %d int8_t %d and size_t %d\n", sizeof(int), sizeof(int8_t), sizeof(size_t));
+
   while(1) {
-    if(!(i % 100000))
-      gpio_toggle(LED0_PIN);
+    if(!(i % 100000)) {
+      // gpio_toggle(LED0_PIN);
+    }
     if (esp32_term_cncted && !esp32_done) {
-      tsrb_drop(&_uart_stdio_isrpipe.tsrb, 128);
+      tsrb_drop(&_uart_stdio_isrpipe.tsrb, NINA_BUFF_SZ);
+      gpio_clear(LED0_PIN);
     }
 
     if(cdcacm->state == USBUS_CDC_ACM_LINE_STATE_CARRIER ||
@@ -120,12 +139,14 @@ static void *_uart_thread(void *args) {
     // }
 
     // read usb
-    num = tsrb_avail(&_boot_isrpipe_ptr->tsrb);
+    num = tsrb_avail(&_cdc_stdio_isrpipe_ptr->tsrb);
     len = 0;
-    if (num > 0) {      
-      len = isrpipe_read(_boot_isrpipe_ptr, usbr_uartw, num);
-      if (len > CONFIG_USBUS_CDC_ACM_STDIO_BUF_SIZE * 30)
-        usbus_event_post(usbus, &cdcacm->retry);      
+    if (num > 0) {
+      num = chg_num(num);
+      len = stdio_read(usbr_uartw, num);      
+      if (num != len) {
+        gpio_set(LED0_PIN);
+      }   
     }
 
     // write uart
@@ -136,8 +157,12 @@ static void *_uart_thread(void *args) {
     // read uart
     num = tsrb_avail(&_uart_stdio_isrpipe.tsrb);
     len = 0;
-    if (num > 0 && !pause_usb) {      
-      len = isrpipe_read(&_uart_stdio_isrpipe, uartr_usbw, num);      
+    if (num > 0 && !pause_usb) {
+      num = chg_num(num);
+      len = isrpipe_read(&_uart_stdio_isrpipe, uartr_usbw, num);
+      if (len != num) {
+        gpio_set(LED0_PIN);
+      }     
       // if (c0_came && uartr_usbw[0] == 0xc0) gpio_set(LED0_PIN);
     }
 
@@ -145,19 +170,25 @@ static void *_uart_thread(void *args) {
     //   uart_write(NINA_UART, (uint8_t *) help_msg, sizeof(help_msg));
 
     // write usb
+    if (len > 0) {
+      num = stdio_write(uartr_usbw, len);
+      if (len != num) {
+        gpio_set(LED0_PIN);
+      }
+    } 
     (void) pause_uart;
     (void) pause_usb;
-    if (len > 0) {      
-      uint8_t *buffer = uartr_usbw;
-      do {
-          size_t n = usbus_cdc_acm_submit(cdcacm, buffer, len);
-          // usbus_cdc_acm_flush(cdcacm);
-          usbus_event_post(usbus, &cdcacm->flush);
-          /* Use tsrb and flush */
-          buffer = buffer + n;
-          len -= n;
-      } while (len);
-    }          
+    // if (len > 0) {      
+    //   uint8_t *buffer = uartr_usbw;
+    //   do {
+    //       size_t n = usbus_cdc_acm_submit(cdcacm, buffer, len);
+    //       // usbus_cdc_acm_flush(cdcacm);
+    //       usbus_event_post(usbus, &cdcacm->flush);
+    //       /* Use tsrb and flush */
+    //       buffer = buffer + n;
+    //       len -= n;
+    //   } while (len);
+    // }          
 
     // xtimer_usleep(5);
     i++;

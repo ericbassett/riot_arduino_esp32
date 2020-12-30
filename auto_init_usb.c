@@ -21,7 +21,7 @@
  * @author  Koen Zandberg <koen@bergzand.net>
  * @}
  */
-
+#ifndef MODULE_AUTO_INIT_USBUS
 #define USB_H_USER_IS_RIOT_INTERNAL
 
 #include "usb/usbus.h"
@@ -92,3 +92,4 @@ void auto_init_usb(void)
     // printf("one: %d\ntwo: %d\nthree: %d\n", (int) one, (int)two, (int)three);
 
 }
+#endif /* MODULE_AUTO_INIT_USBUS */

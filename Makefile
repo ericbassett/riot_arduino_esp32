@@ -14,6 +14,7 @@ USEMODULE += periph_spi
 USEMODULE += periph_uart
 USEMODULE += isrpipe_read_timeout
 USEMODULE += periph_uart_hw_fc
+USEMODULE += periph_dma
 # USEMODULE += periph_uart_nonblocking
 # USEMODULE += stdio_cdc_acm
 DISABLE_MODULE += auto_init_usbus

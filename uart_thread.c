@@ -5,6 +5,7 @@
 #include "isrpipe.h"
 #include "usb/usbus.h"
 #include "usb/usbus/cdc/acm.h"
+#include "periph/gpio.h"
 // #include "event.h"
 // #include "usb/usbus/cdc/acm.h"
 #include "isrpipe/read_timeout.h"
@@ -15,7 +16,8 @@
 #define NINA_UART_BAUD    115200
 #define NINA_ACK_PIN      GPIO_PIN(PA, 28)
 #define NINA_BUFF_SZ      (128 * 16)
-#define RW_NUM            (128 * 16)
+#define RW_NUM            (128 * 12)
+#define ENABLE_DEBUG      1
 
 #define UART_THREAD_CDC_FULL_FLAG   (_U_(0x1) << 3)
 
@@ -151,7 +153,9 @@ static void *_uart_thread(void *args) {
 
     // write uart
     if (len > 0) {
+      // gpio_set(LED0_PIN);
       uart_write(NINA_UART, usbr_uartw, len);
+      // gpio_clear(LED0_PIN);
     }
 
     // read uart

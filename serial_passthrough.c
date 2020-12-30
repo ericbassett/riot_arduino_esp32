@@ -26,11 +26,18 @@
 #include "isrpipe.h"
 #include "usb/usbus.h"
 #include "usb/usbus/cdc/acm.h"
+#include "periph/gpio.h"
 // #include "usb/usbus/cdc/acm.h"
 #include "isrpipe/read_timeout.h"
 
+#ifndef MODULE_AUTO_INIT_USBUS
 extern usbus_t *usbus_ptr;
+#else
+usbus_t *usbus_ptr = NULL;
+#endif
+
 extern void uart_create(usbus_t *usbus);
+extern void usb_echo_create(void);
 // extern isrpipe_t *_cdc_bootload_isrpipe_ptr;
 // extern void _cdc_acm_bootload_rx_pipe(usbus_cdcacm_device_t *cdcacm,
 //                              uint8_t *data, size_t len);
@@ -94,46 +101,53 @@ int ser_pass_cmd(int argc, char **argv)
     printf("usage: %s\n", argv[0]);
     return 1;
   }
-
-  ser_pin_init();
-  // ser_init();
-  ser_nina_restart();
-
-  // static const usbopt_enable_t _disable = USBOPT_DISABLE;
-  // static const usbopt_enable_t _enable = USBOPT_ENABLE;
-  // usbdev_set(usbus_ptr->dev, USBOPT_ATTACH, &_disable,
-  //             sizeof(usbopt_enable_t));
-  
-  // xtimer_sleep(2);
-  // // usbus_cdcacm_device_t *stdio_dev = (usbus_cdcacm_device_t *) usbus_ptr->handlers;
-  // // stdio_dev->cb = _cdc_acm_bootload_rx_pipe;
-  // xtimer_sleep(2);
-  
-  // // usbus_interface_t *stdio_if1 = usbus_ptr->iface;
-  // // usbus_interface_t *stdio_if2 = usbus_ptr->iface->next;
-  // // usbus_endpoint_t *one = usbus_interface_find_endpoint(stdio_if1, USB_EP_TYPE_INTERRUPT, USB_EP_DIR_IN);
-  // // usbus_endpoint_t *two = usbus_interface_find_endpoint(stdio_if2, USB_EP_TYPE_BULK, USB_EP_DIR_IN);
-  // // usbus_endpoint_t *three = usbus_interface_find_endpoint(stdio_if2, USB_EP_TYPE_BULK, USB_EP_DIR_OUT);
-
-  // // usbus_disable_endpoint(one);
-  // // usbus_disable_endpoint(two);
-  // // usbus_disable_endpoint(three);  
-
-  // // usbus_interface_t *boot_if1 = usbus_ptr->iface->next->next;
-  // // usbus_interface_t *boot_if2 = boot_if1->next;
-  // // one = usbus_interface_find_endpoint(boot_if1, USB_EP_TYPE_INTERRUPT, USB_EP_DIR_IN);
-  // // two = usbus_interface_find_endpoint(boot_if2, USB_EP_TYPE_BULK, USB_EP_DIR_IN);
-  // // three = usbus_interface_find_endpoint(boot_if2, USB_EP_TYPE_BULK, USB_EP_DIR_OUT);
-  // // usbus_enable_endpoint(one);
-  // // usbus_enable_endpoint(two);
-  // // usbus_enable_endpoint(three);  
-
-  // usbdev_set(usbus_ptr->dev, USBOPT_ATTACH, &_enable,
-  //         sizeof(usbopt_enable_t));
-
-  uart_create(usbus_ptr);
-  thread_sleep();
+  if (argc == 2) {
+    printf("usb echo\n");
+    usb_echo_create();
+    thread_sleep();
+  } else {
 
 
+
+    ser_pin_init();
+    // ser_init();
+    ser_nina_restart();
+
+    // static const usbopt_enable_t _disable = USBOPT_DISABLE;
+    // static const usbopt_enable_t _enable = USBOPT_ENABLE;
+    // usbdev_set(usbus_ptr->dev, USBOPT_ATTACH, &_disable,
+    //             sizeof(usbopt_enable_t));
+    
+    // xtimer_sleep(2);
+    // // usbus_cdcacm_device_t *stdio_dev = (usbus_cdcacm_device_t *) usbus_ptr->handlers;
+    // // stdio_dev->cb = _cdc_acm_bootload_rx_pipe;
+    // xtimer_sleep(2);
+    
+    // // usbus_interface_t *stdio_if1 = usbus_ptr->iface;
+    // // usbus_interface_t *stdio_if2 = usbus_ptr->iface->next;
+    // // usbus_endpoint_t *one = usbus_interface_find_endpoint(stdio_if1, USB_EP_TYPE_INTERRUPT, USB_EP_DIR_IN);
+    // // usbus_endpoint_t *two = usbus_interface_find_endpoint(stdio_if2, USB_EP_TYPE_BULK, USB_EP_DIR_IN);
+    // // usbus_endpoint_t *three = usbus_interface_find_endpoint(stdio_if2, USB_EP_TYPE_BULK, USB_EP_DIR_OUT);
+
+    // // usbus_disable_endpoint(one);
+    // // usbus_disable_endpoint(two);
+    // // usbus_disable_endpoint(three);  
+
+    // // usbus_interface_t *boot_if1 = usbus_ptr->iface->next->next;
+    // // usbus_interface_t *boot_if2 = boot_if1->next;
+    // // one = usbus_interface_find_endpoint(boot_if1, USB_EP_TYPE_INTERRUPT, USB_EP_DIR_IN);
+    // // two = usbus_interface_find_endpoint(boot_if2, USB_EP_TYPE_BULK, USB_EP_DIR_IN);
+    // // three = usbus_interface_find_endpoint(boot_if2, USB_EP_TYPE_BULK, USB_EP_DIR_OUT);
+    // // usbus_enable_endpoint(one);
+    // // usbus_enable_endpoint(two);
+    // // usbus_enable_endpoint(three);  
+
+    // usbdev_set(usbus_ptr->dev, USBOPT_ATTACH, &_enable,
+    //         sizeof(usbopt_enable_t));
+
+    uart_create(usbus_ptr);
+    thread_sleep();
+
+  }
   return 0;
 }
